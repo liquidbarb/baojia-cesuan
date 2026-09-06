@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XXXXXX报价测算器 · 代理版</title>
+<style>
+:root{
+  --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
+  --fg:#e6e8ee; --dim:#9aa3b2; --accent:#4f9cf9; --good:#3fb950;
+  --warn:#d29922; --bad:#f85149; --purple:#a371f7;
+}
+@media (prefers-color-scheme: light){
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --panel2:#f0f2f5; --line:#dfe3e8;
+    --fg:#1c2024; --dim:#5b6472; --accent:#0969da; --good:#1a7f37;
+    --warn:#9a6700; --bad:#cf222e; --purple:#8250df;
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--fg);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  line-height:1.6; padding:24px 20px 60px;
+}
+.wrap{max-width:1180px;margin:0 auto}
+header{margin-bottom:24px;padding-bottom:18px;border-bottom:1px solid var(--line)}
+h1{font-size:24px;font-weight:650;letter-spacing:-.3px}
+.sub{color:var(--dim);font-size:13px;margin-top:6px}
+.grid{display:grid;grid-template-columns:380px 1fr;gap:20px;align-items:start}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:16px}
+.card h2{font-size:14px;font-weight:650;margin-bottom:14px;color:var(--fg);
+  display:flex;align-items:center;gap:8px;text-transform:uppercase;letter-spacing:.5px}
+.card h2::before{content:"";width:3px;height:14px;background:var(--accent);border-radius:2px}
+label{display:block;font-size:12.5px;color:var(--dim);margin:12px 0 5px}
+label:first-of-type{margin-top:0}
+input[type=number],input[type=range],select{
+  width:100%;background:var(--panel2);border:1px solid var(--line);
+  color:var(--fg);border-radius:7px;padding:8px 10px;font-size:14px;font-family:inherit}
+input[type=number]:focus,select:focus{outline:none;border-color:var(--accent)}
+input[type=range]{padding:0;height:28px;accent-color:var(--accent)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hint{font-size:11.5px;color:var(--dim);margin-top:4px}
+.val{float:right;color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums}
+hr{border:0;border-top:1px solid var(--line);margin:16px 0}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px}
+.kpi .k{font-size:11.5px;color:var(--dim);margin-bottom:6px}
+.kpi .v{font-size:21px;font-weight:680;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+.kpi .n{font-size:11px;color:var(--dim);margin-top:4px}
+.kpi.a .v{color:var(--accent)} .kpi.g .v{color:var(--good)}
+.kpi.p .v{color:var(--purple)} .kpi.w .v{color:var(--warn)} .kpi.r .v{color:var(--bad)}
+
+.verdict{border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:14px;border:1px solid}
+.verdict.ok{background:rgba(63,185,80,.10);border-color:var(--good);color:var(--good)}
+.verdict.no{background:rgba(248,81,73,.10);border-color:var(--bad);color:var(--bad)}
+.verdict.mid{background:rgba(210,153,34,.10);border-color:var(--warn);color:var(--warn)}
+.verdict b{font-weight:680}
+
+table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--line)}
+th{color:var(--dim);font-weight:600;font-size:12px;text-align:right;background:var(--panel2)}
+th:first-child,td:first-child{text-align:left}
+tr:last-child td{border-bottom:none}
+.pos{color:var(--good)} .neg{color:var(--bad)} .mut{color:var(--dim)}
+.bar{height:7px;border-radius:4px;background:var(--line);overflow:hidden;min-width:70px}
+.bar i{display:block;height:100%;border-radius:4px}
+canvas{width:100%;height:220px;display:block;margin-top:6px}
+.note{font-size:12px;color:var(--dim);line-height:1.7;margin-top:12px}
+.note code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:11.5px}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;
+  border:1px solid var(--line);color:var(--dim);margin-left:6px}
+footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--dim);line-height:1.8}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>XXXXXX报价测算器 <span class="tag">代理版 v1.0</span></h1>
+  <div class="sub">输入客户负载画像 → 自动给出订阅报价、毛利与风险敞口。勘察完当场可报价。<br>
+  ⚠️ 单价基于官方计算器反推（内存 ¥162/GB·月，CPU ¥68/(核·满负荷)·月），<b>签约前请用XXXXXX真实价目表替换</b>。</div>
+</header>
+
+<div class="grid">
+  <!-- ============ 输入 ============ -->
+  <div>
+    <div class="card">
+      <h2>客户负载画像</h2>
+      <label>纳管服务器台数 <span class="val" id="v_n">8</span></label>
+      <input type="range" id="n" min="1" max="100" value="8" step="1">
+
+      <label>单台常驻内存占用（GB，取 P95）<span class="val" id="v_mem">5.0</span></label>
+      <input type="range" id="mem" min="0.2" max="32" value="5" step="0.1">
+
+      <label>单台 CPU 核数 <span class="val" id="v_core">8</span></label>
+      <input type="range" id="core" min="1" max="128" value="8" step="1">
+
+      <label>平均 CPU 利用率（取 P95）<span class="val" id="v_util">18%</span></label>
+      <input type="range" id="util" min="1" max="100" value="18" step="1">
+      <div class="hint">内存占XXXXXX成本 84%–92%，是定价的决定性变量，务必实测。</div>
+    </div>
+
+    <div class="card">
+      <h2>商务参数</h2>
+      <div class="row2">
+        <div>
+          <label>拿货折扣</label>
+          <select id="dist">
+            <option value="0.45">4.5 折</option>
+            <option value="0.50">5.0 折</option>
+            <option value="0.55" selected>5.5 折</option>
+            <option value="0.60">6.0 折</option>
+            <option value="0.70">7.0 折</option>
+          </select>
+        </div>
+        <div>
+          <label>订阅系数</label>
+          <select id="sub">
+            <option value="0.75">0.75（激进）</option>
+            <option value="0.80" selected>0.80（推荐）</option>
+            <option value="0.85">0.85（稳健）</option>
+            <option value="0.90">0.90（保守）</option>
+          </select>
+        </div>
+      </div>
+      <div class="hint">订阅系数 = 订阅价 ÷ XXXXXX官价。<b>低于 0.75 风险显著上升</b>。</div>
+      <hr>
+      <label>运维服务费（元/月）</label>
+      <input type="number" id="ops" value="2500" min="0" step="500">
+      <label>实施费（一次性，元）</label>
+      <input type="number" id="impl" value="25000" min="0" step="5000">
+      <div class="hint">运维人力成本按 40% 计，实施成本按 40% 计。</div>
+    </div>
+
+    <div class="card">
+      <h2>客户当前付费基准</h2>
+      <label>客户当前月度算力支出（元/月，全部机器合计）</label>
+      <input type="number" id="cloud" value="8000" min="0" step="500">
+      <div class="hint">公有云账单 / 托管费 / 租用费。<b>若客户纯自有闲置机器无新增支出，填 0</b>——此时 ROI 最差。</div>
+    </div>
+  </div>
+
+  <!-- ============ 输出 ============ -->
+  <div>
+    <div id="verdict"></div>
+
+    <div class="kpis">
+      <div class="kpi a"><div class="k">XXXXXX官价（月）</div><div class="v" id="k_c">–</div><div class="n" id="k_cn">–</div></div>
+      <div class="kpi p"><div class="k">建议订阅价（月）</div><div class="v" id="k_f">–</div><div class="n">含封顶风险溢价</div></div>
+      <div class="kpi g"><div class="k">你的月毛利</div><div class="v" id="k_gp">–</div><div class="n" id="k_gpn">–</div></div>
+      <div class="kpi"><div class="k">首年毛利</div><div class="v" id="k_y1">–</div><div class="n" id="k_y1n">–</div></div>
+    </div>
+
+    <div class="card">
+      <h2>成本结构：内存 vs CPU</h2>
+      <table>
+        <thead><tr><th>项目</th><th>用量</th><th>月成本</th><th>占比</th><th>分布</th></tr></thead>
+        <tbody id="t_split"></tbody>
+      </table>
+      <div class="note">内存是成本主战场。给客户的降本服务应聚焦<b>内存瘦身</b>，而非 CPU 调度优化。</div>
+    </div>
+
+    <div class="card">
+      <h2>风险敞口：实际消耗波动时的毛利</h2>
+      <canvas id="chart" width="760" height="220"></canvas>
+      <table style="margin-top:14px">
+        <thead><tr><th>实际消耗 vs 基准</th><th>官价</th><th>你的成本</th><th>月毛利</th><th>毛利率</th></tr></thead>
+        <tbody id="t_sens"></tbody>
+      </table>
+      <div class="note" id="breakeven"></div>
+    </div>
+
+    <div class="card">
+      <h2>风险敞口：内存测量误差（真正的杀手）</h2>
+      <table>
+        <thead><tr><th>内存实测偏差</th><th>内存成本</th><th>总官价</th><th>你的成本</th><th>月毛利</th></tr></thead>
+        <tbody id="t_mem"></tbody>
+      </table>
+      <div class="note" id="memnote"></div>
+    </div>
+
+    <div class="card">
+      <h2>客户视角：省不省钱</h2>
+      <table>
+        <thead><tr><th>项目</th><th>月度</th><th>年度</th><th>说明</th></tr></thead>
+        <tbody id="t_cust"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<footer>
+  口径说明：XXXXXX官价 = 台数 × (内存GB × 162 + 核数 × 利用率 × 68)；代理成本 = 官价 × 拿货折扣；订阅价 = 官价 × 订阅系数。<br>
+  风险提示：本测算器所有单价为反推值，未经XXXXXX书面确认。做商业决策前必须替换为真实报价，并叠加网络准入（千兆一票否决）、有状态应用免责、GPU 能力未验证三项约束。<br>
+  配套文档：《XXXXXX代理定价策略设计》《XXXXXX代理落地工具包》《XXXXXX合作模式规划_技术尽调分析》
+</footer>
+</div>
+
+<script>
+const MEM=162, CPU=68;
+const $=id=>document.getElementById(id);
+const fmt=n=>'¥'+Math.round(n).toLocaleString('zh-CN');
+const pct=n=>(n*100).toFixed(0)+'%';
+
+function read(){
+  return {
+    n:+$('n').value, mem:+$('mem').value, core:+$('core').value, util:+$('util').value/100,
+    dist:+$('dist').value, sub:+$('sub').value,
+    ops:+$('ops').value||0, impl:+$('impl').value||0, cloud:+$('cloud').value||0
+  };
+}
+
+function calc(p){
+  const Cm = p.n * p.mem * MEM;
+  const Cc = p.n * p.core * p.util * CPU;
+  const C  = Cm + Cc;
+  const F  = C * p.sub;
+  const cost = C * p.dist;
+  const gpSub = F - cost;
+  const gpOps = p.ops * 0.6;
+  const gpImpl = p.impl * 0.6;
+  const gpM = gpSub + gpOps;
+  return {Cm,Cc,C,F,cost,gpSub,gpOps,gpImpl,gpM,
+          y1: gpM*12 + gpImpl, y2: gpM*12};
+}
+
+function verdict(p,r){
+  const el=$('verdict'); let cls,html;
+  if(p.cloud<=0){
+    cls='no';
+    html='<b>不建议推进。</b>客户当前无新增算力支出（自有闲置机器）。闲置算力是沉没成本，'+
+         '流动它省下的是"未来可能花的钱"，不是"现在正在花的钱"。'+
+         '除非客户<b>正准备采购新硬件扩容</b>，否则 ROI 接近 0。请转向"正在为算力付费"的客户。';
+  }else{
+    const save=(p.cloud-r.F)/p.cloud;
+    if(save>=0.30){cls='ok';
+      html=`<b>强烈推荐。</b>客户月省 <b>${fmt(p.cloud-r.F)}</b>（<b>${pct(save)}</b>），`+
+           `年省 <b>${fmt((p.cloud-r.F)*12)}</b>。属于"按量付费+轻负载"优质客群，优先投入销售资源。`;}
+    else if(save>=0.12){cls='mid';
+      html=`<b>可以推进，但要管理预期。</b>客户月省 ${fmt(p.cloud-r.F)}（${pct(save)}）。`+
+           `节省幅度中等，建议搭配运维服务打包提升感知价值，或改用节省分成制降低客户决策门槛。`;}
+    else if(save>=0){cls='mid';
+      html=`<b>勉强打平（${pct(save)}）。</b>省得太少，客户没有足够动力替换现有方案。`+
+           `建议：① 先做内存瘦身把 footprint 降下来再报价；② 或放弃，别浪费 POC 资源。`;}
+    else{cls='no';
+      html=`<b>不划算，建议放弃。</b>订阅价比客户当前支出还高 <b>${fmt(r.F-p.cloud)}</b>。`+
+           `原因通常是内存占用过大或 CPU 利用率过高。硬推只会做亏本单。`;}
+  }
+  el.className='verdict '+cls; el.innerHTML=html;
+}
+
+function render(){
+  const p=read(), r=calc(p);
+  $('v_n').textContent=p.n; $('v_mem').textContent=p.mem.toFixed(1);
+  $('v_core').textContent=p.core; $('v_util').textContent=(p.util*100).toFixed(0)+'%';
+
+  verdict(p,r);
+
+  $('k_c').textContent=fmt(r.C);
+  $('k_cn').textContent=`内存 ${pct(r.Cm/r.C)} · CPU ${pct(r.Cc/r.C)}`;
+  $('k_f').textContent=fmt(r.F);
+  $('k_gp').textContent=fmt(r.gpM);
+  $('k_gpn').textContent=`毛利率 ${pct(r.gpM/(r.F+p.ops))}`;
+  $('k_y1').textContent=fmt(r.y1);
+  $('k_y1n').textContent=`续年 ${fmt(r.y2)}`;
+
+  // 成本结构
+  const rows=[
+    ['内存（可预测 · 决定性）', (p.n*p.mem).toFixed(1)+' GB', r.Cm, r.Cm/r.C, 'var(--accent)'],
+    ['CPU（真实波动源）', (p.n*p.core*p.util).toFixed(1)+' 核当量', r.Cc, r.Cc/r.C, 'var(--purple)']
+  ];
+  $('t_split').innerHTML=rows.map(x=>
+    `<tr><td>${x[0]}</td><td class="mut">${x[1]}</td><td>${fmt(x[2])}</td>`+
+    `<td><b>${pct(x[3])}</b></td><td><div class="bar"><i style="width:${(x[3]*100).toFixed(1)}%;background:${x[4]}"></i></div></td></tr>`
+  ).join('')+`<tr><td><b>合计（XXXXXX官价）</b></td><td></td><td><b>${fmt(r.C)}</b></td><td></td><td></td></tr>`;
+
+  // 敏感性
+  const devs=[-0.5,-0.3,-0.1,0,0.2,0.3,0.5,0.8,1.0];
+  const sens=devs.map(d=>{
+    const C1=r.C*(1+d), c=C1*p.dist, gp=r.F-c;
+    return {d,C1,c,gp,rate:gp/r.F};
+  });
+  $('t_sens').innerHTML=sens.map(s=>{
+    const cls=s.gp>=0?'pos':'neg';
+    return `<tr><td>${s.d>0?'+':''}${(s.d*100).toFixed(0)}%${s.d===0?'（基准）':''}</td>`+
+      `<td class="mut">${fmt(s.C1)}</td><td class="mut">${fmt(s.c)}</td>`+
+      `<td class="${cls}"><b>${fmt(s.gp)}</b></td><td class="${cls}">${pct(s.rate)}</td></tr>`;
+  }).join('');
+
+  // 盈亏平衡
+  const beTotal = r.C*(p.sub/p.dist - 1);
+  const bePct = p.sub/p.dist - 1;
+  const cmFixed = ((r.F/p.dist) - r.Cc)/(p.n*MEM) ; // 内存不变时 CPU 临界利用率
+  $('breakeven').innerHTML=
+    `· 整体：<b>实际消耗涨 ${pct(bePct)}</b>（每月多支出 ${fmt(beTotal)} 官价）时毛利归零。<br>`+
+    `· 细分：若内存实测准确，CPU 需飙到 <b>${pct(Math.max(0,cmFixed/Math.max(1,p.mem)))}</b> 才亏损——`+
+    `因为内存占成本 ${pct(r.Cm/r.C)}，而内存是可提前精确测量的。<br>`+
+    `<b>→ 风控重心：锁死内存配额（建议合同写 120% 触发超量结算），而不是盯着 CPU。</b>`;
+
+  // 内存误差
+  const merrs=[-0.2,-0.1,0,0.1,0.2,0.3,0.5,0.8];
+  $('t_mem').innerHTML=merrs.map(e=>{
+    const cm=r.Cm*(1+e), C=cm+r.Cc, c=C*p.dist, gp=r.F-c;
+    const cls=gp>=0?'pos':'neg';
+    return `<tr><td>${e>0?'+':''}${(e*100).toFixed(0)}%${e===0?'（勘察值）':''}</td>`+
+      `<td class="mut">${fmt(cm)}</td><td class="mut">${fmt(C)}</td><td class="mut">${fmt(c)}</td>`+
+      `<td class="${cls}"><b>${fmt(gp)}</b></td></tr>`;
+  }).join('');
+  const eBreak = ((r.F/p.dist)-r.Cc)/r.Cm - 1;
+  $('memnote').innerHTML=
+    `· 实测内存比勘察值高出 <b>${pct(eBreak)}</b> 时毛利归零。这比 CPU 波动危险得多——`+
+    `CPU 要涨 5 倍才亏，内存只要多 ${pct(eBreak)} 就亏。<br>`+
+    `<b>→ 所以售前必须做满 14 天负载勘察，且部署后第 2–3 周必须复核内存 P95。</b>`+
+    `若复核值高于勘察值 20% 以上，立即启动基线复审上调订阅价——拖到验收再说，这单必亏。`;
+
+  // 客户视角
+  const custRows=[
+    ['客户当前支出', p.cloud, p.cloud*12, p.cloud>0?'云账单 / 托管 / 租用':'<b class="neg">无新增支出（最差客群）</b>'],
+    ['改用XXXXXX订阅', r.F, r.F*12, '含封顶风险溢价'],
+    ['＋运维服务费', p.ops, p.ops*12, '含实施与调优'],
+    ['<b>客户合计支出</b>', r.F+p.ops, (r.F+p.ops)*12, '对比基准']
+  ];
+  let h=custRows.map(x=>
+    `<tr><td>${x[0]}</td><td>${fmt(x[1])}</td><td>${fmt(x[2])}</td><td class="mut">${x[3]}</td></tr>`
+  ).join('');
+  if(p.cloud>0){
+    const d1=p.cloud-r.F, d2=p.cloud-(r.F+p.ops);
+    const cls=d2>=0?'pos':'neg';
+    h+=`<tr><td><b>净节省（仅订阅）</b></td><td class="${d1>=0?'pos':'neg'}"><b>${fmt(d1)}</b></td>`+
+       `<td class="${d1>=0?'pos':'neg'}"><b>${fmt(d1*12)}</b></td><td class="mut">${pct(d1/p.cloud)}</td></tr>`+
+       `<tr><td><b>净节省（含运维）</b></td><td class="${cls}"><b>${fmt(d2)}</b></td>`+
+       `<td class="${cls}"><b>${fmt(d2*12)}</b></td><td class="mut">${pct(d2/p.cloud)}</td></tr>`;
+  }
+  $('t_cust').innerHTML=h;
+
+  drawChart(sens);
+}
+
+function drawChart(sens){
+  const cv=$('chart'), ctx=cv.getContext('2d');
+  const W=cv.width, H=cv.height, pad={l:56,r:16,t:16,b:32};
+  ctx.clearRect(0,0,W,H);
+  const style=getComputedStyle(document.body);
+  const cLine=style.getPropertyValue('--line').trim()||'#2a2f3a';
+  const cDim=style.getPropertyValue('--dim').trim()||'#9aa3b2';
+  const cGood=style.getPropertyValue('--good').trim()||'#3fb950';
+  const cBad=style.getPropertyValue('--bad').trim()||'#f85149';
+
+  const gps=sens.map(s=>s.gp);
+  const mx=Math.max(...gps), mn=Math.min(...gps);
+  const range=Math.max(mx-mn, 1);
+  const y=v=>pad.t + (H-pad.t-pad.b) * (1-(v-mn)/range);
+  const x=i=>pad.l + (W-pad.l-pad.r) * i/(sens.length-1);
+
+  // 零轴
+  if(mn<0&&mx>0){
+    ctx.strokeStyle=cDim; ctx.setLineDash([4,4]); ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(pad.l,y(0)); ctx.lineTo(W-pad.r,y(0)); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle=cDim; ctx.font='11px sans-serif'; ctx.textAlign='left';
+    ctx.fillText('盈亏平衡', pad.l+4, y(0)-5);
+  }
+  // 折线
+  ctx.beginPath();
+  sens.forEach((s,i)=>{ i?ctx.lineTo(x(i),y(s.gp)):ctx.moveTo(x(i),y(s.gp)); });
+  ctx.strokeStyle=cGood; ctx.lineWidth=2.2; ctx.stroke();
+  // 面积
+  ctx.lineTo(x(sens.length-1),y(Math.max(mn,0))); ctx.lineTo(x(0),y(Math.max(mn,0))); ctx.closePath();
+  ctx.fillStyle=cGood+'22'; ctx.fill();
+  // 点
+  sens.forEach((s,i)=>{
+    ctx.beginPath(); ctx.arc(x(i),y(s.gp),3.5,0,7);
+    ctx.fillStyle=s.gp>=0?cGood:cBad; ctx.fill();
+  });
+  // x 轴标签
+  ctx.fillStyle=cDim; ctx.font='11px sans-serif'; ctx.textAlign='center';
+  sens.forEach((s,i)=>{
+    ctx.fillText((s.d>0?'+':'')+(s.d*100).toFixed(0)+'%', x(i), H-12);
+  });
+  ctx.textAlign='right';
+  ctx.fillText('毛利', pad.l-8, pad.t+10);
+}
+
+['n','mem','core','util','dist','sub','ops','impl','cloud'].forEach(id=>{
+  $(id).addEventListener('input',render);
+});
+render();
+</script>
+</body>
+</html>
